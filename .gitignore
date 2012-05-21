@@ -1,6 +1,7 @@
 .eunit
 deps
 priv
+ebin/*.app
 *.o
 *.beam
 *.plt
