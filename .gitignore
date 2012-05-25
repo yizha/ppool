@@ -5,3 +5,4 @@ ebin/*.app
 *.o
 *.beam
 *.plt
+*.swp
