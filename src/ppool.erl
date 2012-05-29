@@ -3,7 +3,7 @@
 -behaviour(application).
 -export([start/2, stop/1, start_pool/4,
          run/2, sync_queue/2, async_queue/2, 
-         status/1, stop_pool/1]).
+         status/1, stop_pool/1, configure/2]).
 
 start(normal, _Args) ->
     ppool_supersup:start_link().
@@ -25,6 +25,9 @@ async_queue(Name, Args) ->
 
 sync_queue(Name, Args) ->
     ppool_serv:sync_queue(Name, Args).
+
+configure(Name, Args) ->
+    ppool_serv:configure(Name, Args).
 
 status(Name) ->
     ppool_serv:status(Name).

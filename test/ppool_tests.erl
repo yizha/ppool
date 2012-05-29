@@ -82,7 +82,7 @@ find_unique_name() ->
 
 start_ppool() ->
     Name = find_unique_name(),
-    ppool:start_pool(Name, 2, {ppool_nagger, start_link, []}),
+    ppool:start_pool(Name, 2, 2, {ppool_nagger, start_link, []}),
     Name.
 
 kill_ppool(Name) ->
@@ -90,7 +90,7 @@ kill_ppool(Name) ->
     
 %%% Actual tests
 start_and_test_name(Name) ->
-    ppool:start_pool(Name, 1, {ppool_nagger, start_link, []}),
+    ppool:start_pool(Name, 1, 1, {ppool_nagger, start_link, []}),
     A = whereis(Name),
     ppool:stop_pool(Name),
     timer:sleep(100),
@@ -108,7 +108,7 @@ pool_run_mfa(Name) ->
     ?_assertEqual(ok, X).
 
 pool_run_alloc(Name) ->
-    {ok, Pid} = ppool:run(Name, [i_am_running, 1, 1, self()]),
+    {ok, run, Pid} = ppool:run(Name, [i_am_running, 1, 1, self()]),
     X = receive
         {Pid, i_am_running} -> ok
     after 3000 ->
@@ -122,15 +122,15 @@ pool_run_noalloc(Name) ->
     ppool:run(Name, [i_am_running, 300, 1, self()]),
     ppool:run(Name, [i_am_running, 300, 1, self()]),
     X = ppool:run(Name, [i_am_running, 1, 1, self()]),
-    ?_assertEqual(noalloc, X).
+    ?_assertEqual({ng, noalloc}, X).
     
 pool_run_realloc(Name) ->
     %% Init function should have set the limit to 2
-    {ok, A} = ppool:run(Name, [i_am_running, 500, 1, self()]),
+    {ok, run, A} = ppool:run(Name, [i_am_running, 500, 1, self()]),
     timer:sleep(100),
-    {ok, B} = ppool:run(Name, [i_am_running, 500, 1, self()]),
+    {ok, run, B} = ppool:run(Name, [i_am_running, 500, 1, self()]),
     timer:sleep(600),
-    {ok, Pid} = ppool:run(Name, [i_am_running, 1, 1, self()]),
+    {ok, run, Pid} = ppool:run(Name, [i_am_running, 1, 1, self()]),
     timer:sleep(100),
     L = flush(),
     [?_assert(is_pid(Pid)),
@@ -139,41 +139,41 @@ pool_run_realloc(Name) ->
 
 test_async_queue(Name) ->
     %% Still two elements max!
-    ok = ppool:async_queue(Name, [i_am_running, 2000, 1, self()]),
-    ok = ppool:async_queue(Name, [i_am_running, 2000, 1, self()]),
-    noalloc = ppool:run(Name, [i_am_running, 2000, 1, self()]),
-    ok = ppool:async_queue(Name, [i_am_running, 500, 1, self()]),
+    {ok, run, _Pid1} = ppool:async_queue(Name, [i_am_running, 2000, 1, self()]),
+    {ok, run, _Pid2} = ppool:async_queue(Name, [i_am_running, 2000, 1, self()]),
+    {ng, noalloc} = ppool:run(Name, [i_am_running, 2000, 1, self()]),
+    {ok, queued} = ppool:async_queue(Name, [i_am_running, 500, 1, self()]),
     timer:sleep(3500),
     L = flush(),
     ?_assertMatch([{_, i_am_running}, {_, i_am_running}, {_, i_am_running}], L).
 
 test_sync_queue(Name) ->
     %% Hell yase, two max
-    {ok, Pid} = ppool:sync_queue(Name, [i_am_running, 200, 1, self()]),
-    ok = ppool:async_queue(Name, [i_am_running, 200, 1, self()]),
-    ok = ppool:async_queue(Name, [i_am_running, 200, 1, self()]),
-    {ok, Pid2} = ppool:sync_queue(Name, [i_am_running, 100, 1, self()]),
-    timer:sleep(300),
+    {ok, run, Pid1} = ppool:sync_queue(Name, [i_am_running, 200, 1, self()]),
+    ppool:async_queue(Name, [i_am_running, 200, 1, self()]),
+    ppool:async_queue(Name, [i_am_running, 200, 1, self()]),
+    ppool:async_queue(Name, [i_am_running, 200, 1, self()]),
+    {ok, queued} = ppool:sync_queue(Name, [i_am_running, 100, 1, self()]),
+    timer:sleep(1000),
     L = flush(),
-    [?_assert(is_pid(Pid)),
-     ?_assert(is_pid(Pid2)),
+    [?_assert(is_pid(Pid1)),
      ?_assertMatch([{_,i_am_running}, {_,i_am_running},
-                    {_,i_am_running}, {_,i_am_running}],
+                    {_,i_am_running}, {_,i_am_running}, {_,i_am_running}],
                    L)].
 
 test_supervision(Name) ->
-    ppool:start_pool(Name, 1, {ppool_nagger, start_link, []}),
-    {ok, Pid} = ppool:run(Name, [sup, 10000, 100, self()]),
+    ppool:start_pool(Name, 1, 1, {ppool_nagger, start_link, []}),
+    {ok, run, Pid} = ppool:run(Name, [sup, 10000, 100, self()]),
     ppool:stop_pool(Name),
     timer:sleep(100),
     ?_assertEqual(undefined, process_info(Pid)). 
 
 test_auth_dealloc(Name) ->
     %% Hell yase, two max
-    {ok, _Pid} = ppool:sync_queue(Name, [i_am_running, 500, 1, self()]),
-    ok = ppool:async_queue(Name, [i_am_running, 10000, 1, self()]),
-    ok = ppool:async_queue(Name, [i_am_running, 10000, 1, self()]),
-    ok = ppool:async_queue(Name, [i_am_running, 1, 1, self()]),
+    {ok, run, _Pid} = ppool:sync_queue(Name, [i_am_running, 500, 1, self()]),
+    ppool:async_queue(Name, [i_am_running, 10000, 1, self()]),
+    ppool:async_queue(Name, [i_am_running, 10000, 1, self()]),
+    ppool:async_queue(Name, [i_am_running, 1, 1, self()]),
     timer:sleep(600),
     Name ! {'DOWN', make_ref(), process, self(), normal},
     Name ! {'DOWN', make_ref(), process, self(), normal},
