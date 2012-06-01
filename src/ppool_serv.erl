@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 -export([start/5, start_link/5, run/2, 
          sync_queue/2, async_queue/2, 
-         status/1, stop/1, configure/2]).
+         status/1, is_busy/1, stop/1, configure/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          code_change/3, terminate/2]).
 
@@ -44,6 +44,9 @@ configure(Name, Args) ->
 
 status(Name) ->
     gen_server:call(Name, status, infinity).
+
+is_busy(Name) ->
+    gen_server:call(Name, is_busy, infinity).
 
 stop(Name) ->
     gen_server:call(Name, stop).
@@ -87,6 +90,10 @@ handle_call({async, _}, _, S) ->
 % status
 handle_call(status, _From, State = #state{running_max=M, running_cnt=N, queue_max=QM, queue_cnt=QN}) ->
     {reply, {ok, {{running_max, M}, {running_cnt, N}, {queue_max, QM}, {queue_cnt, QN}}}, State};
+
+% working?
+handle_call(is_busy, _From, State = #state{running_cnt=N}) ->
+    {reply, {ok, N == 0}, State};
 
 % change running_max and/or queue_max
 handle_call({configure, ConfList}, _From, State) when is_list(ConfList) ->
