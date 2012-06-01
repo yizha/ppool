@@ -93,7 +93,7 @@ handle_call(status, _From, State = #state{running_max=M, running_cnt=N, queue_ma
 
 % working?
 handle_call(is_busy, _From, State = #state{running_cnt=N}) ->
-    {reply, {ok, N == 0}, State};
+    {reply, {ok, N > 0}, State};
 
 % change running_max and/or queue_max
 handle_call({configure, ConfList}, _From, State) when is_list(ConfList) ->
