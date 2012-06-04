@@ -3,7 +3,7 @@
 -behaviour(application).
 -export([start/2, stop/1, start_pool/4,
          run/2, sync_queue/2, async_queue/2, 
-         status/1, is_busy/1, wait_for/1,
+         status/1, is_busy/1, ping/1, wait_for/1,
          stop_pool/1, configure/2]).
 
 start(normal, _Args) ->
@@ -35,6 +35,9 @@ status(Name) ->
 
 is_busy(Name) ->
     ppool_serv:is_busy(Name).
+
+ping(Name) ->
+    ppool_serv:ping(Name).
 
 wait_for(Name) ->
     case ppool_serv:is_busy(Name) of

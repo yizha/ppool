@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 -export([start/5, start_link/5, run/2, 
          sync_queue/2, async_queue/2, 
-         status/1, is_busy/1, stop/1, configure/2]).
+         status/1, is_busy/1, ping/1, stop/1, configure/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
          code_change/3, terminate/2]).
 
@@ -47,6 +47,9 @@ status(Name) ->
 
 is_busy(Name) ->
     gen_server:call(Name, is_busy, infinity).
+
+ping(Name) ->
+    gen_server:call(Name, ping, infinity).
 
 stop(Name) ->
     gen_server:call(Name, stop).
@@ -94,6 +97,9 @@ handle_call(status, _From, State = #state{running_max=M, running_cnt=N, queue_ma
 % working?
 handle_call(is_busy, _From, State = #state{running_cnt=N}) ->
     {reply, {ok, N > 0}, State};
+% ping
+handle_call(ping, _From, State) ->
+    {reply, pong, State};
 
 % change running_max and/or queue_max
 handle_call({configure, ConfList}, _From, State) when is_list(ConfList) ->
